@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+  SEO_MANAGER
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  SCHEDULED
+  ARCHIVED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+enum RedirectType {
+  PERMANENT_301
+  TEMPORARY_302
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String
+  name          String
+  role          Role           @default(EDITOR)
+  avatar        String?
+  twoFAEnabled  Boolean        @default(false)
+  twoFASecret   String?
+  isActive      Boolean        @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  blogs         Blog[]         @relation("BlogAuthor")
+  pages         Page[]         @relation("PageAuthor")
+  activityLogs  ActivityLog[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Page {
+  id            String     @id @default(cuid())
+  title         String
+  slug          String     @unique
+  content       String     @db.LongText
+  status        PostStatus @default(DRAFT)
+  authorId      String
+  author        User       @relation("PageAuthor", fields: [authorId], references: [id])
+  seoMeta       SeoMeta?
+  publishedAt   DateTime?
+  scheduledAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@map("pages")
+}
+
+model Blog {
+  id           String     @id @default(cuid())
+  title        String
+  slug         String     @unique
+  excerpt      String?    @db.Text
+  content      String     @db.LongText
+  featuredImage String?
+  status       PostStatus @default(DRAFT)
+  authorId     String
+  author       User       @relation("BlogAuthor", fields: [authorId], references: [id])
+  categories   Category[] @relation("BlogCategories")
+  tags         Tag[]      @relation("BlogTags")
+  seoMeta      SeoMeta?
+  viewCount    Int        @default(0)
+  publishedAt  DateTime?
+  scheduledAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@map("blogs")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  blogs       Blog[]   @relation("BlogCategories")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("categories")
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  blogs     Blog[]   @relation("BlogTags")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tags")
+}
+
+model SeoMeta {
+  id              String   @id @default(cuid())
+  pageId          String?  @unique
+  blogId          String?  @unique
+  metaTitle       String?
+  metaDescription String?  @db.Text
+  keywords        String?  @db.Text
+  ogTitle         String?
+  ogDescription   String?  @db.Text
+  ogImage         String?
+  twitterTitle    String?
+  twitterDesc     String?  @db.Text
+  twitterImage    String?
+  canonicalUrl    String?
+  noIndex         Boolean  @default(false)
+  noFollow        Boolean  @default(false)
+  jsonLd          String?  @db.LongText
+  page            Page?    @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  blog            Blog?    @relation(fields: [blogId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("seo_meta")
+}
+
+model Lead {
+  id        String     @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  message   String     @db.Text
+  status    LeadStatus @default(NEW)
+  source    String?
+  ipAddress String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("leads")
+}
+
+model Media {
+  id         String   @id @default(cuid())
+  filename   String
+  url        String
+  publicId   String?
+  mimeType   String
+  size       Int
+  width      Int?
+  height     Int?
+  altText    String?
+  caption    String?
+  uploadedBy String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("media")
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.LongText
+  group     String   @default("general")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model Redirect {
+  id         String       @id @default(cuid())
+  fromPath   String       @unique
+  toPath     String
+  type       RedirectType @default(PERMANENT_301)
+  isActive   Boolean      @default(true)
+  hitCount   Int          @default(0)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@map("redirects")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  details   String?  @db.Text
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@map("activity_logs")
+}
